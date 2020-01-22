@@ -37,7 +37,7 @@ import java.util.Arrays;
 public class N4FileWriteable extends NFileWriteable {
 
 
-    N4FileWriteable(String filename) throws IOException {
+    public N4FileWriteable(String filename) throws IOException {
         netcdfFileWriter = NetcdfFileWriter.createNew(NetcdfFileWriter.Version.netcdf4, filename, new NetCDF4Chunking());
     }
 
