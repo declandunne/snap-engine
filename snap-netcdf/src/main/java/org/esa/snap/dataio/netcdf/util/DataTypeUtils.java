@@ -31,6 +31,13 @@ public class DataTypeUtils {
         return getRasterDataType(dataType, unsigned) != -1;
     }
 
+    /**
+     * Tries to detect if the variable is signed or unsigned. Might fail for some implementations, e.g. BUFR.
+     * In such cases use {@link #getRasterDataType(DataType, boolean)}
+     *
+     * @param variable the variable to retrieve the type from
+     * @return the {@link ProductData} type
+     */
     public static int getRasterDataType(Variable variable) {
         return getRasterDataType(variable.getDataType(), variable.getDataType().isUnsigned());
     }
@@ -54,7 +61,9 @@ public class DataTypeUtils {
         } else if (DataType.UINT.equals(dataType)) {
             return ProductData.TYPE_UINT32;
         } else if (DataType.LONG.equals(dataType)) {
-            return ProductData.TYPE_INT64;
+            return unsigned ? ProductData.TYPE_UINT64 : ProductData.TYPE_INT64;
+        } else if (DataType.ULONG.equals(dataType)) {
+            return ProductData.TYPE_UINT64;
         } else if (DataType.FLOAT.equals(dataType)) {
             return ProductData.TYPE_FLOAT32;
         } else if (DataType.DOUBLE.equals(dataType)) {
@@ -70,12 +79,12 @@ public class DataTypeUtils {
     }
 
     /**
-     * Return the NetCDF equivalent to the given dataType.
+     * Return the NetCDF equivalent to the given {@link ProductData} type.
      *
      * @param dataType must be one of {@code ProductData.TYPE_*}
-     * @return the NetCDF equivalent to the given dataType or {@code null} if not {@code dataType} is
+     * @return the NetCDF equivalent to the given dataType
      * not one of {@code ProductData.TYPE_*}
-     * @see ProductData
+     * @throws IllegalArgumentException if the given type value is unknown
      */
     public static DataType getNetcdfDataType(int dataType) {
         switch (dataType) {
@@ -102,7 +111,8 @@ public class DataTypeUtils {
             case ProductData.TYPE_UTC:
                 return DataType.STRING;
             default:
-                return null;
+                String msg = String.format("ProductData type with value of '%d' is not unknown.", dataType);
+                throw new IllegalArgumentException(msg);
         }
     }
 

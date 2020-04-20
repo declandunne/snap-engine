@@ -26,7 +26,7 @@ import java.awt.image.RenderedImage;
  */
 @OperatorMetadata(alias = "TileCache",
         category = "Tools",
-        authors = "Marco Peters",
+        authors = "Marco Peters, Martin Böttcher",
         copyright = "Brockmann Consult GmbH",
         version = "0.1",
         internal = true,

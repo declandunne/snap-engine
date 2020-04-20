@@ -31,11 +31,13 @@ import static org.junit.Assert.fail;
  * @author Marco Peters
  */
 public class GloballyShiftedDataTest {
+    // This generates data which mimics the LCCCI data for the Climate Data Store, just with a lower resolution
+    // This test relates to https://senbox.atlassian.net/browse/SNAP-950 and https://senbox.atlassian.net/browse/SNAP-951
 
     private static File tempFile;
-    private static final int WIDTH = 8100;
-    private static final int HEIGHT = 4050;
-    private static final int STEP_HEIGHT = 50;
+    private static final int WIDTH = 810;
+    private static final int HEIGHT = 405;
+    private static final int STEP_HEIGHT = 5;
     private static final int HALF_WIDTH = WIDTH / 2;
     private Product product;
 
@@ -43,6 +45,11 @@ public class GloballyShiftedDataTest {
     // This test relates to https://senbox.atlassian.net/browse/SNAP-950
     @BeforeClass
     public static void createTestDataFile() throws IOException {
+//        Assume.assumeTrue("Runs only on windows", isWindows());
+
+        System.out.println("**************** is Running Windows: " + isWindows());
+
+        NetCdfActivator.activate();
 
         tempFile = File.createTempFile(GloballyShiftedDataTest.class.getSimpleName(), ".nc");
 //        tempFile = new File(String.format("%s\\%s.nc", System.getProperty("user.home"), GloballyShiftedDataTest.class.getSimpleName()));
@@ -181,4 +188,9 @@ public class GloballyShiftedDataTest {
         }
 
     }
+
+    private static boolean isWindows() {
+        return System.getProperty("os.name").toLowerCase().startsWith("win");
+    }
+
 }
