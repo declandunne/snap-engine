@@ -21,9 +21,11 @@ import org.esa.snap.core.dataio.dimap.DimapProductConstants;
 import org.esa.snap.core.datamodel.Band;
 import org.esa.snap.core.datamodel.Product;
 import org.esa.snap.core.datamodel.ProductData;
+import org.esa.snap.core.image.LevelImageSupport;
 import org.esa.snap.core.util.Guardian;
 import org.esa.snap.core.util.StopWatch;
 import org.esa.snap.core.util.SystemUtils;
+import org.esa.snap.runtime.Config;
 import org.esa.snap.runtime.EngineConfig;
 
 import javax.media.jai.PlanarImage;
@@ -67,8 +69,7 @@ public class ProductIO {
     public static final String DEFAULT_FORMAT_NAME = DimapProductConstants.DIMAP_FORMAT_NAME;
 
     public static final String SYSTEM_PROPERTY_CONCURRENT = "snap.productio.concurrent";
-
-    private static final boolean concurrent = Boolean.parseBoolean(System.getProperty(SYSTEM_PROPERTY_CONCURRENT, "true"));
+    public static final boolean DEFAULT_WRITE_RASTER_CONCURRENT = true;
 
 
     /**
@@ -476,6 +477,7 @@ public class ProductIO {
      */
     private static void writeAllBands(Product product, ProgressMonitor pm) throws IOException {
         ProductWriter productWriter = product.getProductWriter();
+        final boolean concurrent = Config.instance("snap").load().preferences().getBoolean(SYSTEM_PROPERTY_CONCURRENT, DEFAULT_WRITE_RASTER_CONCURRENT);
 
         // for correct progress indication we need to collect
         // all bands which shall be written to the output
@@ -556,7 +558,7 @@ public class ProductIO {
     private static void writeRasterDataFully(ProgressMonitor pm, Band band, ExecutorService executor, Semaphore semaphore, List<IOException> ioExceptionCollector) throws IOException {
         if (band.hasRasterData()) {
             band.writeRasterData(0, 0, band.getRasterWidth(), band.getRasterHeight(), band.getRasterData(), pm);
-            if (semaphore!=null) {
+            if (semaphore != null) {
                 semaphore.release();
             }
         } else {
@@ -605,19 +607,45 @@ public class ProductIO {
         }
     }
 
+    /**
+     * This method is not part of the official API and might change in the future.
+     * <p>
+     * The method directly delegates to {@link AbstractProductReader#readProductNodesImpl()} which is not
+     * publicly available.
+     * <p>
+     * This overcomes a short coming in the current API. A reader can be used with a SubsetDef but this can not be
+     * changed dynamically.
+     *
+     * @param reader     the reader to read from
+     * @param destBand   the band which shall be read
+     * @param lvlSupport defines the level (resolution) within the level image pyramid which shall be read
+     * @param destRect   the rectangular area which shall be filled with data
+     * @param destBuffer the buffer where to put the data
+     * @throws IOException in case an error occurs during reading
+     */
+    // Todo mp 2020-07-03 - https://senbox.atlassian.net/browse/SNAP-1134
+    public static void readLevelBandRasterData(AbstractProductReader reader,
+                                               Band destBand,
+                                               LevelImageSupport lvlSupport,
+                                               Rectangle destRect,
+                                               ProductData destBuffer) throws IOException {
+
+        Rectangle srcRect = lvlSupport.getSourceRectangle(destRect);
+        final int scale = (int) lvlSupport.getScale();
+
+        reader.readBandRasterDataImpl(srcRect.x, srcRect.y, srcRect.width, srcRect.height, scale, scale, destBand,
+                                      destRect.x, destRect.y, destRect.width, destRect.height, destBuffer, ProgressMonitor.NULL);
+    }
+
     private static class Finisher {
 
         private final ProgressMonitor pm;
-        //        private final String name;
         private final Semaphore semaphore;
         private final ExecutorService executor;
         private final int work;
         private int counter;
 
         public Finisher(ProgressMonitor pm, Semaphore semaphore, ExecutorService executor, int counter) {
-//        public Finisher(String name, ProgressMonitor pm, Semaphore semaphore, ExecutorService executor, int counter) {
-//            this.name = name;
-//            System.out.println(name + "  NumTiles = " + counter);
             this.pm = pm;
             this.semaphore = semaphore;
             this.executor = executor;
@@ -626,16 +654,15 @@ public class ProductIO {
         }
 
         public synchronized void worked() {
-            pm.worked(1);
-            counter++;
-//            System.out.println(name + ":counter = " + counter);
-            if (counter == work) {
-//                System.out.println("************************************");
-//                System.out.println(name +" finished");
-//                System.out.println("************************************");
-                semaphore.release();
-                executor.shutdown();
-                pm.done();
+            try {
+                pm.worked(1);
+            } finally {
+                counter++;
+                if (counter == work) {
+                    semaphore.release();
+                    executor.shutdown();
+                    pm.done();
+                }
             }
         }
     }

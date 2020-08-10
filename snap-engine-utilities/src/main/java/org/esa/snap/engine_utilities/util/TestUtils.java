@@ -26,14 +26,19 @@ import org.esa.snap.core.datamodel.ProductData;
 import org.esa.snap.core.datamodel.TiePointGeoCoding;
 import org.esa.snap.core.datamodel.TiePointGrid;
 import org.esa.snap.core.gpf.main.GPT;
+import org.esa.snap.core.util.ResourceInstaller;
 import org.esa.snap.core.util.SystemUtils;
 import org.esa.snap.engine_utilities.datamodel.AbstractMetadata;
 import org.esa.snap.engine_utilities.datamodel.Unit;
 import org.esa.snap.engine_utilities.gpf.CommonReaders;
+import org.esa.snap.engine_utilities.gpf.OperatorUtils;
+import org.esa.snap.runtime.Config;
 
 import javax.media.jai.JAI;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.logging.Logger;
 
@@ -59,9 +64,30 @@ public class TestUtils {
 
         try {
             SystemUtils.init3rdPartyLibs(GPT.class);
+            initAuxData();
             testEnvironmentInitialized = true;
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private static void initAuxData() throws Exception {
+        Path propFile = SystemUtils.getApplicationHomeDir().toPath().resolve("snap-engine").resolve("etc/snap.auxdata.properties");
+        if(!Files.exists(propFile)) {
+            propFile = SystemUtils.getApplicationHomeDir().toPath().resolve("../etc/snap.auxdata.properties");
+        }
+        if(!Files.exists(propFile)) {
+            propFile = SystemUtils.getApplicationHomeDir().toPath().resolve("../../snap-engine/etc/snap.auxdata.properties");
+        }
+        if(!Files.exists(propFile)) {
+            final Path moduleBasePath = ResourceInstaller.findModuleCodeBasePath(TestUtils.class);
+            propFile = moduleBasePath.resolve("etc/snap.auxdata.properties");
+        }
+        if(propFile.toFile().exists()) {
+            System.out.println("Auxdata properties loaded from "  + propFile);
+            Config.instance(Settings.SNAP_AUXDATA).load(propFile);
+        } else {
+            throw new Exception("etc/snap.auxdata.properties not found");
         }
     }
 
@@ -165,12 +191,44 @@ public class TestUtils {
 
     private static void addGeoCoding(final Product product) {
 
-        final TiePointGrid latGrid = new TiePointGrid("lat", 2, 2, 0.5f, 0.5f,
+        final TiePointGrid latGrid = new TiePointGrid(OperatorUtils.TPG_LATITUDE, 4, 4, 0.5f, 0.5f,
                                                       product.getSceneRasterWidth(), product.getSceneRasterHeight(),
-                                                      new float[]{10.0f, 10.0f, 5.0f, 5.0f});
-        final TiePointGrid lonGrid = new TiePointGrid("lon", 2, 2, 0.5f, 0.5f,
+                                                      new float[]{
+                                                              46.99964f,
+                                                              47.078053f,
+                                                              47.153496f,
+                                                              47.226784f,
+                                                              46.64042f,
+                                                              46.71869f,
+                                                              46.79402f,
+                                                              46.867233f,
+                                                              46.28112f,
+                                                              46.359253f,
+                                                              46.43448f,
+                                                              46.507614f,
+                                                              45.921745f,
+                                                              45.999744f,
+                                                              46.07487f,
+                                                              46.14794f});
+        final TiePointGrid lonGrid = new TiePointGrid(OperatorUtils.TPG_LONGITUDE, 4, 4, 0.5f, 0.5f,
                                                       product.getSceneRasterWidth(), product.getSceneRasterHeight(),
-                                                      new float[]{10.0f, 10.0f, 5.0f, 5.0f},
+                                                      new float[]{
+                                                              11.11786f,
+                                                              10.570571f,
+                                                              10.024274f,
+                                                              9.472965f,
+                                                              11.006959f,
+                                                              10.463262f,
+                                                              9.920575f,
+                                                              9.372928f,
+                                                              10.897017f,
+                                                              10.356847f,
+                                                              9.817702f,
+                                                              9.273651f,
+                                                              10.788004f,
+                                                              10.251297f,
+                                                              9.715628f,
+                                                              9.175106f},
                                                       TiePointGrid.DISCONT_AT_360);
         final TiePointGeoCoding tpGeoCoding = new TiePointGeoCoding(latGrid, lonGrid);
 

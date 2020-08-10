@@ -10,6 +10,8 @@ import java.util.Date;
 import java.util.List;
 
 /**
+ * The implementation class for a local repository product.
+ *
  * Created by jcoravu on 5/9/2019.
  */
 public class LocalRepositoryProduct implements RepositoryProduct {
@@ -17,10 +19,10 @@ public class LocalRepositoryProduct implements RepositoryProduct {
     private final int id;
     private final String name;
     private final Date acquisitionDate;
-    private final long sizeInBytes;
     private final AbstractGeometry2D polygon;
 
     private Path path;
+    private long sizeInBytes;
     private org.esa.snap.remote.products.repository.RemoteMission remoteMission;
     private List<Attribute> remoteAttributes;
     private List<Attribute> localAttributes;
@@ -63,6 +65,11 @@ public class LocalRepositoryProduct implements RepositoryProduct {
     @Override
     public long getApproximateSize() {
         return this.sizeInBytes;
+    }
+
+    @Override
+    public void setApproximateSize(long approximateSize) {
+        this.sizeInBytes = approximateSize;
     }
 
     @Override

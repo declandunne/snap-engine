@@ -17,8 +17,6 @@
 package org.esa.snap.binning.operator;
 
 import com.bc.ceres.core.ProgressMonitor;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
 import org.esa.snap.binning.AggregatorConfig;
 import org.esa.snap.binning.BinningContext;
 import org.esa.snap.binning.CellProcessorConfig;
@@ -40,8 +38,8 @@ import org.esa.snap.binning.operator.metadata.MetadataAggregatorFactory;
 import org.esa.snap.binning.support.SpatialDataPeriod;
 import org.esa.snap.core.dataio.ProductIO;
 import org.esa.snap.core.datamodel.Band;
+import org.esa.snap.core.datamodel.BasicPixelGeoCoding;
 import org.esa.snap.core.datamodel.MetadataElement;
-import org.esa.snap.core.datamodel.PixelGeoCoding;
 import org.esa.snap.core.datamodel.Product;
 import org.esa.snap.core.datamodel.ProductData;
 import org.esa.snap.core.gpf.Operator;
@@ -62,16 +60,23 @@ import org.esa.snap.core.util.StopWatch;
 import org.esa.snap.core.util.converters.JtsGeometryConverter;
 import org.esa.snap.core.util.io.WildcardMatcher;
 import org.geotools.geometry.jts.JTS;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
 
-import java.awt.*;
+import java.awt.Rectangle;
 import java.awt.geom.Area;
 import java.awt.geom.GeneralPath;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
-import java.util.*;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.logging.Level;
 
 /*
@@ -101,7 +106,7 @@ todo - address the following BinningOp requirements (nf, 2012-03-09)
  */
 @SuppressWarnings("UnusedDeclaration")
 @OperatorMetadata(alias = "Binning",
-        category = "Raster/Geometric Operations",
+        category = "Raster/Geometric",
         version = "1.0",
         authors = "Norman Fomferra, Marco Zühlke, Thomas Storm",
         copyright = "(c) 2014 by Brockmann Consult GmbH",
@@ -732,7 +737,7 @@ public class BinningOp extends Operator {
             subsetOp.setSourceProduct(sourceProduct);
 
             final Rectangle subsetRectangle = SubsetOp.computePixelRegion(sourceProduct, region, 0);
-            if (sourceProduct.getSceneGeoCoding() instanceof PixelGeoCoding && (subsetRectangle.height <= 2 || subsetRectangle.width <= 2)) {
+            if (sourceProduct.getSceneGeoCoding() instanceof BasicPixelGeoCoding && (subsetRectangle.height <= 2 || subsetRectangle.width <= 2)) {
                 // workaround for SNAP-1264
                 // PixelGeoCodings can't work on such small rasters
                 // increase rectangle size by 1 pixel to each side, making sure not to extend source product boundaries

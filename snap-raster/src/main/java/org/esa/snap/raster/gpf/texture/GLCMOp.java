@@ -96,6 +96,9 @@ public final class GLCMOp extends Operator {
     @Parameter(description = "Pixel displacement", interval = "[1, 8]", defaultValue = "4", label = "Displacement")
     private int displacement = 4;
 
+    @Parameter(description = "Target product no data value", label = "No Data Value", defaultValue = "-9999.0")
+    private double noDataValue = -9999.0;
+
     @Parameter(description = "Output Contrast", defaultValue = "true", label = "Contrast")
     private Boolean outputContrast = true;
 
@@ -345,6 +348,7 @@ public final class GLCMOp extends Operator {
         targetBandNames = getTargetBandNames();
         final Band[] bands = OperatorUtils.addBands(targetProduct, targetBandNames, "");
         for (Band band : bands) {
+            band.setNoDataValue(noDataValue);
             band.setNoDataValueUsed(true);
         }
     }
@@ -437,7 +441,8 @@ public final class GLCMOp extends Operator {
             int cnt = 0;
             for (String srcBandName : sourceBands) {
                 final Band sourceBand = sourceProduct.getBand(srcBandName);
-                srcInfoList[cnt] = new SrcInfo(numQuantLevels, sourceBand, getSourceTile(sourceBand, sourceTileRectangle));
+                srcInfoList[cnt] = new SrcInfo(
+                        numQuantLevels, sourceBand, getSourceTile(sourceBand, sourceTileRectangle), noDataValue);
 
                 final List<TileData> tileDataList = new ArrayList<>();
                 for (String targetBandName : targetBandNames) {
@@ -1014,7 +1019,7 @@ public final class GLCMOp extends Operator {
         public GLCMElem[] GLCM;
         private final int numQuantLevels;
 
-        public SrcInfo(final int numQuantLevels, final Band srcBand, final Tile srcTile) {
+        public SrcInfo(final int numQuantLevels, final Band srcBand, final Tile srcTile, final double noDataValue) {
             this.numQuantLevels = numQuantLevels;
             this.sourceTile = srcTile;
             this.srcIndex = new TileIndex(sourceTile);

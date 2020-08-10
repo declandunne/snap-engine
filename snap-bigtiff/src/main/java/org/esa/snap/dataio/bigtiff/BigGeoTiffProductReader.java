@@ -18,6 +18,15 @@ import it.geosolutions.imageioimpl.plugins.tiff.TIFFRenderedImage;
 import org.esa.snap.core.dataio.AbstractProductReader;
 import org.esa.snap.core.dataio.ProductReaderPlugIn;
 import org.esa.snap.core.dataio.dimap.DimapProductHelpers;
+import org.esa.snap.core.dataio.geocoding.ComponentFactory;
+import org.esa.snap.core.dataio.geocoding.ComponentGeoCoding;
+import org.esa.snap.core.dataio.geocoding.ForwardCoding;
+import org.esa.snap.core.dataio.geocoding.GeoChecks;
+import org.esa.snap.core.dataio.geocoding.GeoRaster;
+import org.esa.snap.core.dataio.geocoding.InverseCoding;
+import org.esa.snap.core.dataio.geocoding.forward.TiePointBilinearForward;
+import org.esa.snap.core.dataio.geocoding.inverse.TiePointInverse;
+import org.esa.snap.core.dataio.geocoding.util.RasterUtils;
 import org.esa.snap.core.datamodel.Band;
 import org.esa.snap.core.datamodel.ColorPaletteDef;
 import org.esa.snap.core.datamodel.CrsGeoCoding;
@@ -32,7 +41,6 @@ import org.esa.snap.core.datamodel.Placemark;
 import org.esa.snap.core.datamodel.Product;
 import org.esa.snap.core.datamodel.ProductData;
 import org.esa.snap.core.datamodel.ProductNodeGroup;
-import org.esa.snap.core.datamodel.TiePointGeoCoding;
 import org.esa.snap.core.datamodel.TiePointGrid;
 import org.esa.snap.core.datamodel.VirtualBand;
 import org.esa.snap.core.dataop.maptransf.Datum;
@@ -43,6 +51,7 @@ import org.esa.snap.core.util.geotiff.GeoTIFFCodes;
 import org.esa.snap.core.util.io.FileUtils;
 import org.esa.snap.core.util.jai.JAIUtils;
 import org.esa.snap.dataio.bigtiff.internal.GeoKeyEntry;
+import org.esa.snap.dataio.geotiff.Utils;
 import org.geotools.coverage.grid.io.imageio.geotiff.GeoTiffConstants;
 import org.geotools.coverage.grid.io.imageio.geotiff.GeoTiffException;
 import org.geotools.coverage.grid.io.imageio.geotiff.GeoTiffIIOMetadataDecoder;
@@ -50,11 +59,13 @@ import org.geotools.coverage.grid.io.imageio.geotiff.GeoTiffMetadata2CRSAdapter;
 import org.geotools.coverage.grid.io.imageio.geotiff.PixelScale;
 import org.geotools.coverage.grid.io.imageio.geotiff.TiePoint;
 import org.geotools.factory.Hints;
+import org.geotools.referencing.CRS;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.geotools.referencing.operation.matrix.GeneralMatrix;
 import org.geotools.referencing.operation.transform.ProjectiveTransform;
 import org.jdom.Document;
 import org.jdom.input.DOMBuilder;
+import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 import org.xml.sax.SAXException;
@@ -92,6 +103,8 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.logging.Level;
+
+import static org.esa.snap.core.dataio.geocoding.util.RasterUtils.toFloat;
 
 class BigGeoTiffProductReader extends AbstractProductReader {
 
@@ -245,7 +258,11 @@ class BigGeoTiffProductReader extends AbstractProductReader {
     }
 
     Product readGeoTIFFProduct(final ImageInputStream stream, final File inputFile) throws IOException {
-        imageReader = BigGeoTiffProductReaderPlugIn.getTiffImageReader(stream);
+        try {
+            imageReader = BigGeoTiffProductReaderPlugIn.getTiffImageReader(stream);
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
         if (imageReader == null) {
             throw new IOException("GeoTiff imageReader not found");
         }
@@ -453,28 +470,40 @@ class BigGeoTiffProductReader extends AbstractProductReader {
             idx++;
         }
 
-        final float[] lats = new float[width * height];
-        final float[] lons = new float[width * height];
+        final double[] lats = new double[width * height];
+        final double[] lons = new double[width * height];
 
         for (int i = 0; i < tiePoints.length; i += 6) {
             final int idxX = xIdx.get(tiePoints[i + 0]);
             final int idxY = yIdx.get(tiePoints[i + 1]);
             final int arrayIdx = idxY * width + idxX;
-            lons[arrayIdx] = (float) tiePoints[i + 3];
-            lats[arrayIdx] = (float) tiePoints[i + 4];
+            lons[arrayIdx] = tiePoints[i + 3];
+            lats[arrayIdx] = tiePoints[i + 4];
         }
 
         String[] names = findSuitableLatLonNames(product);
         final TiePointGrid latGrid = new TiePointGrid(
-                names[0], width, height, (float) xMin, (float) yMin, (float) xDiff, (float) yDiff, lats);
+                names[0], width, height, (float) xMin, (float) yMin, (float) xDiff, (float) yDiff, toFloat(lats));
         final TiePointGrid lonGrid = new TiePointGrid(
-                names[1], width, height, (float) xMin, (float) yMin, (float) xDiff, (float) yDiff, lons);
+                names[1], width, height, (float) xMin, (float) yMin, (float) xDiff, (float) yDiff, toFloat(lons));
 
         product.addTiePointGrid(latGrid);
         product.addTiePointGrid(lonGrid);
+
+        double tiePointResolutionInKm = RasterUtils.computeResolutionInKm(lons, lats, width, height);
+        double resolutionInKm = tiePointResolutionInKm / ((xDiff + yDiff) / 2);
+        GeoRaster geoRaster = new GeoRaster(
+                lons, lats, lonGrid.getName(), latGrid.getName(), width, height,
+                product.getSceneRasterWidth(), product.getSceneRasterHeight(), resolutionInKm,
+                xMin, yMin, xDiff, yDiff);
+        final ForwardCoding forward = ComponentFactory.getForward(TiePointBilinearForward.KEY);
+        final InverseCoding inverse = ComponentFactory.getInverse(TiePointInverse.KEY);
+
         final SortedMap<Integer, GeoKeyEntry> geoKeyEntries = info.getGeoKeyEntries();
-        final Datum datum = getDatum(geoKeyEntries);
-        product.setSceneGeoCoding(new TiePointGeoCoding(latGrid, lonGrid, datum));
+        final CoordinateReferenceSystem crs = getCRS(geoKeyEntries);
+        ComponentGeoCoding geoCoding = new ComponentGeoCoding(geoRaster, forward, inverse, GeoChecks.ANTIMERIDIAN, crs);
+        geoCoding.initialize();
+        product.setSceneGeoCoding(geoCoding);
     }
 
     private static boolean canCreateGcpGeoCoding(final double[] tiePoints) {
@@ -554,6 +583,20 @@ class BigGeoTiffProductReader extends AbstractProductReader {
             datum = Datum.WGS_84;
         }
         return datum;
+    }
+
+    private static CoordinateReferenceSystem getCRS(Map<Integer, GeoKeyEntry> geoKeyEntries) {
+        if (geoKeyEntries.containsKey(GeoTIFFCodes.GeographicTypeGeoKey)) {
+            final int value = geoKeyEntries.get(GeoTIFFCodes.GeographicTypeGeoKey).getIntValue();
+            if (value == EPSGCodes.GCS_WGS_72) {
+                try {
+                    return CRS.decode("EPSG:" + value);
+                } catch (FactoryException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return DefaultGeographicCRS.WGS84;
     }
 
     private String getProductName(File inputFile, TiffFileInfo tiffFileInfo) {
@@ -637,13 +680,13 @@ class BigGeoTiffProductReader extends AbstractProductReader {
         if (gdalMetadataTiffField != null) {
             final String gdalMetadataXmlString = gdalMetadataTiffField.getAsString(0);
             try {
-                final Band[] bandsFromGdalMetadata = BigGeoTiffUtils.setupBandsFromGdalMetadata(gdalMetadataXmlString,
+                final Band[] bandsFromGdalMetadata = Utils.setupBandsFromGdalMetadata(gdalMetadataXmlString,
                                                                                       productDataType,
                                                                                       product.getSceneRasterWidth(),
                                                                                       product.getSceneRasterHeight());
                 if (bandsFromGdalMetadata.length == numBands) {
-                    for (int i = 0; i < bandsFromGdalMetadata.length; i++) {
-                        product.addBand(bandsFromGdalMetadata[i]);
+                    for (Band bandsFromGdalMetadatum : bandsFromGdalMetadata) {
+                        product.addBand(bandsFromGdalMetadatum);
                     }
                 } else {
                     for (int i = 0; i < numBands; i++) {
@@ -786,8 +829,6 @@ class BigGeoTiffProductReader extends AbstractProductReader {
             @Override
             protected RenderedImage createImage(int level) {
                 final ImageReadParam readParam = new ImageReadParam();
-                readParam.setSourceBands(new int[]{bandIndex});
-                readParam.setDestinationBands(new int[]{bandIndex});
                 if (level > 0) {
                     int sourceSubsampling = 1 << level;
                     readParam.setSourceSubsampling(sourceSubsampling, sourceSubsampling, 0, 0);

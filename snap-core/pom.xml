@@ -128,9 +128,10 @@
         </dependency>
 
         <dependency>
-            <groupId>com.googlecode.efficient-java-matrix-library</groupId>
-            <artifactId>core</artifactId>
+            <groupId>org.ejml</groupId>
+            <artifactId>ejml-ddense</artifactId>
         </dependency>
+
         <dependency>
             <groupId>it.geosolutions.imageio-ext</groupId>
             <artifactId>imageio-ext-tiff</artifactId>
@@ -209,7 +210,7 @@
                         <publicPackage>org.esa.snap.core.*</publicPackage>
                         <publicPackage>org.esa.snap.nn.*</publicPackage>
                         <publicPackage>org.esa.snap.examples.*</publicPackage>
-                        <publicPackage>com.google.common.primitives.*</publicPackage>
+                        <publicPackage>com.google.common.*</publicPackage>
                     </publicPackages>
                 </configuration>
             </plugin>

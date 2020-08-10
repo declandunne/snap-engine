@@ -18,12 +18,22 @@ package org.esa.snap.core.gpf;
 
 import com.bc.ceres.core.Assert;
 import com.bc.ceres.core.ProgressMonitor;
-import org.esa.snap.core.datamodel.*;
-import org.esa.snap.core.gpf.annotations.*;
+import org.esa.snap.core.datamodel.Band;
+import org.esa.snap.core.datamodel.Product;
+import org.esa.snap.core.datamodel.ProductManager;
+import org.esa.snap.core.datamodel.RasterDataNode;
+import org.esa.snap.core.datamodel.TiePointGrid;
+import org.esa.snap.core.gpf.annotations.OperatorMetadata;
+import org.esa.snap.core.gpf.annotations.Parameter;
+import org.esa.snap.core.gpf.annotations.SourceProduct;
+import org.esa.snap.core.gpf.annotations.SourceProducts;
+import org.esa.snap.core.gpf.annotations.TargetProduct;
+import org.esa.snap.core.gpf.annotations.TargetProperty;
 import org.esa.snap.core.gpf.internal.OperatorContext;
 
 import javax.media.jai.BorderExtender;
-import java.awt.*;
+import java.awt.Dimension;
+import java.awt.Rectangle;
 import java.text.MessageFormat;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -167,8 +177,6 @@ public abstract class Operator {
         pm.done();
     }
 
-    // todo - remove ProgressMonitor parameter, it has never been used and wastes processing time (nf - 17.12.2010)
-
     /**
      * Called by the framework in order to compute a tile for the given target band.
      * <p>The default implementation throws a runtime exception with the message "not implemented".
@@ -183,8 +191,6 @@ public abstract class Operator {
         throw new RuntimeException(
                 MessageFormat.format("{0}: ''computeTile()'' method not implemented", getClass().getSimpleName()));
     }
-
-    // todo - remove ProgressMonitor parameter, it has never been used and wastes processing time (nf - 17.12.2010)
 
     /**
      * Called by the framework in order to compute the stack of tiles for the given target bands.

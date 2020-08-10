@@ -7,6 +7,8 @@ import java.util.Date;
 import java.util.List;
 
 /**
+ * The data about the repository product.
+ *
  * Created by jcoravu on 12/8/2019.
  */
 public interface RepositoryProduct {
@@ -22,6 +24,8 @@ public interface RepositoryProduct {
     public String getName();
 
     public long getApproximateSize();
+
+    public void setApproximateSize(long approximateSize);
 
     public String getDownloadQuickLookImageURL();
 

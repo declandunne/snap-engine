@@ -10,7 +10,10 @@ import java.io.File;
 import java.io.InputStream;
 import java.util.Locale;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 public class BigGeoTiffProductReaderPlugInTest {
 
@@ -72,4 +75,5 @@ public class BigGeoTiffProductReaderPlugInTest {
         assertEquals(plugIn.getFormatNames()[0], snapFileFilter.getFormatName());
         assertEquals(true, snapFileFilter.getDescription().contains(plugIn.getDescription(Locale.getDefault())));
     }
+
 }

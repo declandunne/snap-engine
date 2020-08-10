@@ -25,6 +25,8 @@ import org.esa.snap.test.LongTestRunner;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import static org.junit.Assert.assertEquals;
+
 @RunWith(LongTestRunner.class)
 public class TestElevations {
 
@@ -41,19 +43,35 @@ public class TestElevations {
     private static final ElevationModel cdemDem = cdemDescriptor.createDem(ResamplingFactory.createResampling(ResamplingFactory.BILINEAR_INTERPOLATION_NAME));
 
     @Test
-    public void testGetElevation() throws Exception {
+    public void testGetElevationAce30() throws Exception {
 
         double ace30 = ace30Dem.getElevation(toronto);
         SystemUtils.LOG.info("ace30 = " + ace30);
+        assertEquals(59.22894596680049, ace30, 0.0001);
+    }
+
+    @Test
+    public void testGetElevationSRTM3() throws Exception {
 
         double srtm3 = srtm3Dem.getElevation(toronto);
         SystemUtils.LOG.info("SRTM3 = " + srtm3);
+        assertEquals(63.27811676636915, srtm3,0.0001);
+    }
+
+    @Test
+    public void testGetElevationSRTM1() throws Exception {
 
         double srtm1 = srtm1Dem.getElevation(toronto);
         SystemUtils.LOG.info("SRTM1 = " + srtm1);
+        assertEquals(63.5916047484657, srtm1, 0.0001);
+    }
+
+    @Test
+    public void testGetElevationCDEM() throws Exception {
 
         double cdem = cdemDem.getElevation(toronto);
         SystemUtils.LOG.info("CDEM = " + cdem);
+        assertEquals(52.68920413692533, cdem, 0.0001);
     }
 }
 

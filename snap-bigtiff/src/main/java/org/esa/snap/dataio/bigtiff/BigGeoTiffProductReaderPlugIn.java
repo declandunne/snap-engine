@@ -6,12 +6,15 @@ import org.esa.snap.core.dataio.DecodeQualification;
 import org.esa.snap.core.dataio.ProductReader;
 import org.esa.snap.core.dataio.ProductReaderPlugIn;
 import org.esa.snap.core.util.io.SnapFileFilter;
+import org.esa.snap.dataio.geotiff.Utils;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteOrder;
 import java.util.Iterator;
 import java.util.Locale;
 
@@ -70,31 +73,69 @@ public class BigGeoTiffProductReaderPlugIn implements ProductReaderPlugIn {
         return new SnapFileFilter(Constants.FORMAT_NAMES[0], getDefaultFileExtensions(), getDescription(null));
     }
 
-    // @todo 3 tb/tb write test following the original GeoTiff pattern 2015-01-08
     static DecodeQualification getDecodeQualificationImpl(ImageInputStream stream) {
         try {
-            TIFFImageReader imageReader = getTiffImageReader(stream);
-            if (imageReader == null) {
-                return DecodeQualification.UNABLE;
+            String mode = getTiffMode(stream);
+            if ("BigTiff".equals(mode)) {
+                if (getTiffImageReader(stream) != null) {
+                    return DecodeQualification.SUITABLE;
+                }
             }
         } catch (Exception ignore) {
             return DecodeQualification.UNABLE;
         }
-        return DecodeQualification.SUITABLE;
+        return DecodeQualification.UNABLE;
     }
 
-    static TIFFImageReader getTiffImageReader(ImageInputStream stream) {
+    static TIFFImageReader getTiffImageReader(ImageInputStream stream) throws IOException {
         final Iterator<ImageReader> imageReaders = ImageIO.getImageReaders(stream);
         TIFFImageReader imageReader = null;
 
         while (imageReaders.hasNext()) {
             final ImageReader reader = imageReaders.next();
             if (reader instanceof TIFFImageReader) {
-                imageReader = (TIFFImageReader) reader;
-                break;
+                TIFFImageReader tiffReader = (TIFFImageReader) reader;
+                tiffReader.setInput(stream);
+                if (!Utils.isCOGGeoTIFF(tiffReader)) {
+                    imageReader = tiffReader;
+                    break;
+                }
             }
         }
 
         return imageReader;
+    }
+
+    static String getTiffMode(ImageInputStream stream) throws IOException {
+        try {
+            stream.mark();
+            int byteOrder = stream.readUnsignedShort();
+            switch (byteOrder) {
+                case 0x4d4d:
+                    stream.setByteOrder(ByteOrder.BIG_ENDIAN);
+                    break;
+                case 0x4949:
+                    stream.setByteOrder(ByteOrder.LITTLE_ENDIAN);
+                    break;
+                default:
+                    // Fallback
+                    stream.setByteOrder(ByteOrder.LITTLE_ENDIAN);
+                    break;
+            }
+
+            int magic = stream.readUnsignedShort();
+            switch (magic) {
+                case 43:
+                    // BIG-TIFF
+                    return "BigTiff";
+                case 42:
+                    // normal TIFF
+                    return "Tiff";
+                default:
+                    return "Unknown";
+            }
+        } finally {
+            stream.reset();
+        }
     }
 }

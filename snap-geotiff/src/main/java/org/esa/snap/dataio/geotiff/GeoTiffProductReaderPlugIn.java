@@ -17,9 +17,9 @@ package org.esa.snap.dataio.geotiff;
 
 import it.geosolutions.imageioimpl.plugins.tiff.TIFFImageReader;
 import org.esa.snap.core.dataio.DecodeQualification;
-import org.esa.snap.core.metadata.MetadataInspector;
 import org.esa.snap.core.dataio.ProductReader;
 import org.esa.snap.core.dataio.ProductReaderPlugIn;
+import org.esa.snap.core.metadata.MetadataInspector;
 import org.esa.snap.core.util.StringUtils;
 import org.esa.snap.core.util.io.FileUtils;
 import org.esa.snap.core.util.io.SnapFileFilter;
@@ -43,7 +43,7 @@ import java.util.TreeSet;
 
 public class GeoTiffProductReaderPlugIn implements ProductReaderPlugIn {
 
-    public static final String[] FORMAT_NAMES = new String[] {"GeoTIFF"};
+    public static final String[] FORMAT_NAMES = new String[]{"GeoTIFF"};
     public static final String[] TIFF_FILE_EXTENSION = {".tif", ".tiff", ".gtif", ".btf"};
     public static final String ZIP_FILE_EXTENSION = ".zip";
     private static final String[] ALL_FILE_EXTENSIONS = StringUtils.addToArray(TIFF_FILE_EXTENSION, ZIP_FILE_EXTENSION);
@@ -76,7 +76,9 @@ public class GeoTiffProductReaderPlugIn implements ProductReaderPlugIn {
                 if (fileExtension != null) {
                     boolean extensionMatches = Arrays.stream(TIFF_FILE_EXTENSION).anyMatch(fileExtension::equalsIgnoreCase);
                     if (extensionMatches) {
-                        return DecodeQualification.SUITABLE;
+                        try (ImageInputStream imageInputStream = ImageIO.createImageInputStream(productInputFile)) {
+                            return getDecodeQualificationImpl(imageInputStream);
+                        }
                     } else if (fileExtension.equalsIgnoreCase(ZIP_FILE_EXTENSION)) {
                         return checkZipArchive(productPath);
                     }
@@ -132,22 +134,30 @@ public class GeoTiffProductReaderPlugIn implements ProductReaderPlugIn {
 
     static DecodeQualification getDecodeQualificationImpl(ImageInputStream stream) {
         try {
-            Iterator<ImageReader> imageReaders = ImageIO.getImageReaders(stream);
-            TIFFImageReader imageReader = null;
-            while (imageReaders.hasNext()) {
-                final ImageReader reader = imageReaders.next();
-                if (reader instanceof TIFFImageReader) {
-                    imageReader = (TIFFImageReader) reader;
-                    break;
+            String mode = Utils.getTiffMode(stream);
+            if ("Tiff".equals(mode)) {
+                if (isImageReaderAvailable(stream)) {
+                    return DecodeQualification.SUITABLE;
                 }
             }
-            if (imageReader == null) {
-                return DecodeQualification.UNABLE;
-            }
-        } catch (Exception ignore) {
+        } catch (Exception e) {
             return DecodeQualification.UNABLE;
         }
-        return DecodeQualification.SUITABLE;
+        return DecodeQualification.UNABLE;
+    }
+
+    private static boolean isImageReaderAvailable(ImageInputStream stream) throws Exception {
+        Iterator<ImageReader> imageReaders = ImageIO.getImageReaders(stream);
+        while (imageReaders.hasNext()) {
+            final ImageReader reader = imageReaders.next();
+            if (reader instanceof TIFFImageReader) {
+                // 2020-07-21 CC Added COG check
+                TIFFImageReader tiffImageReader = (TIFFImageReader) reader;
+                tiffImageReader.setInput(stream);
+                return !Utils.isCOGGeoTIFF(tiffImageReader);
+            }
+        }
+        return false;
     }
 
     @Override

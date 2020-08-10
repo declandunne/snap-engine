@@ -8,6 +8,8 @@ import java.util.Date;
 import java.util.List;
 
 /**
+ * The implementation class for a remote repository product.
+ *
  * Created by jcoravu on 28/8/2019.
  */
 public class RemoteRepositoryProductImpl implements RepositoryProduct {
@@ -18,10 +20,10 @@ public class RemoteRepositoryProductImpl implements RepositoryProduct {
     private final String downloadURL;
     private final AbstractGeometry2D polygon;
     private final Date acquisitionDate;
-    private final long approximateSize;
 
     private List<Attribute> remoteAttributes;
     private List<Attribute> localAttributes;
+    private long approximateSize;
     private BufferedImage quickLookImage;
     private SensorType sensorType;
     private DataFormatType dataFormatType;
@@ -61,6 +63,11 @@ public class RemoteRepositoryProductImpl implements RepositoryProduct {
     @Override
     public long getApproximateSize() {
         return this.approximateSize;
+    }
+
+    @Override
+    public void setApproximateSize(long approximateSize) {
+        this.approximateSize = approximateSize;
     }
 
     @Override
